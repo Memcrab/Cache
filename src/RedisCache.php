@@ -3,7 +3,7 @@ declare (strict_types = 1);
 namespace Memcrab\Cache;
 
 use Memcrab\Cache\FileCache;
-use MemCrab\Exceptions\FileException;
+use Memcrab\Exceptions\FileException;
 
 class RedislCache implements FileCache {
 	private $Redis;
