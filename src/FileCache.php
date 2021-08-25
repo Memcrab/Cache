@@ -1,6 +1,6 @@
 <?php
 declare (strict_types = 1);
-namespace memCrab\Cache;
+namespace Memcrab\Cache;
 
 interface FileCache extends Cache {
 	public function fileKey(string $filePath): string;
