@@ -1,6 +1,6 @@
 <?php
 declare (strict_types = 1);
-namespace memCrab\Cache;
+namespace Memcrab\Cache;
 
 interface Cache {
 	public function get(string $key);
