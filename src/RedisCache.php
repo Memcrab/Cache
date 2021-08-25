@@ -1,9 +1,9 @@
 <?php
 declare (strict_types = 1);
-namespace memCrab\Cache;
+namespace Memcrab\Cache;
 
-use memCrab\Cache\FileCache;
-use memCrab\Exceptions\FileException;
+use Memcrab\Cache\FileCache;
+use MemCrab\Exceptions\FileException;
 
 class RedislCache implements FileCache {
 	private $Redis;
