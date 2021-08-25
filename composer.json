@@ -1,0 +1,26 @@
+{
+    "name": "memcrab/cache",
+    "description": "PHP Cache Lib for memCrab Core API",
+    "keywords": ["cache", "php", "yaml", "file", "lib", "memcrab"],
+    "homepage": "http://memcrab.com",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Oleksandr Diudiun",
+            "email": "a.diudiun@gmail.com"
+        }
+    ],
+    "type": "package",
+    "require": {
+		"php": ">=7.1",
+        "memcrab/exceptions": "1.1.*"
+    },
+	"require-dev": {
+		"phpunit/phpunit": "6.*.*"
+    },
+	"autoload": {
+        "psr-4": {
+            "memCrab\\Cache\\": "src/"
+        }
+    }
+}
