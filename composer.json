@@ -20,7 +20,7 @@
     },
 	"autoload": {
         "psr-4": {
-            "memCrab\\Cache\\": "src/"
+            "Memcrab\\Cache\\": "src/"
         }
     }
 }
