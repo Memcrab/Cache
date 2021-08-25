@@ -1,6 +1,6 @@
 <?php
 declare (strict_types = 1);
-namespace memCrab\Cache;
+namespace Memcrab\Cache;
 use memCrab\Exceptions\FileException;
 
 class PHPCache implements FileCache {
