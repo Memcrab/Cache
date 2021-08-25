@@ -1,7 +1,7 @@
 <?php
 declare (strict_types = 1);
 namespace Memcrab\Cache;
-use memCrab\Exceptions\FileException;
+use Memcrab\Exceptions\FileException;
 
 class PHPCache implements FileCache {
 	private $cacheFolderPath;
