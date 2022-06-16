@@ -69,7 +69,7 @@ class Cache
 
     public static function shutdown()
     {
-        if (self::$instance->connect !== false && self::$instance->connect !== NULL) {
+        if (isset(self::$instance->connect) && self::$instance->connect !== false && self::$instance->connect !== NULL) {
             self::$instance->connect->close();
         }
     }
