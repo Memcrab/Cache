@@ -19,7 +19,7 @@ class Cache
     {
     }
 
-    private function __wakeup()
+    public function __wakeup()
     {
     }
 
