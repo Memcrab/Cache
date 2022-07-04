@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Memcrab\Cache;
 
-class Cache
+class Cache extends \Redis
 {
-    protected static $instance;
-
-    private $connect;
-    private $timeout = 2.5;
+    protected static Cache $instance;
+    private string $host;
+    private int $port;
+    private string $password;
+    private int $database;
+    private int $timeout = 3;
+    private \Memcrab\Log\Log $ErrorHandler;
 
     private function __construct()
     {
@@ -25,221 +28,83 @@ class Cache
 
     public static function obj()
     {
-        if (!isset(self::$instance) || !(self::$instance instanceof self)) {
-            self::$instance = new self();
+        if (!isset(self::$instance)) {
+            throw new \Exception('Undefined Redis object, please declare connection first', 500);
         }
 
         return self::$instance;
     }
 
-    public function trySetConnect(string $host, $port, int $database, string $password)
+    private function error(string $message)
     {
-        try {
-            $this->connect = new \Redis();
-            if (!$this->connect->connect($host, $port, $this->timeout)) {
-                throw new \Exception(_("Unable to connect to the cache server"), 1);
-            }
-
-            $this->connect->auth($password);
-            $this->connect->select($database);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-        }
+        $this->ErrorHandler->error($message);
     }
 
-    public function pingConnection()
+    public static function declareConnection(
+        string $host,
+        int $port,
+        string $password,
+        int $database,
+        \Memcrab\Log\Log $ErrorHandler,
+    ) {
+        self::$instance = new Cache();
+        self::$instance->host =  $host;
+        self::$instance->port =  $port;
+        self::$instance->password =  $password;
+        self::$instance->database =  $database;
+        self::$instance->ErrorHandler = $ErrorHandler;
+
+        \register_shutdown_function("Memcrab\Cache\Cache::shutdown");
+    }
+
+    public function setConnection(): bool
     {
         try {
-            $status = $this->connect->ping();
-            if ($status != '+PONG') {
-                return false;
-            } else {
-                return true;
+            if ($this->connect($this->host, $this->port, $this->timeout)  === false) {
+                throw new \Exception("Can't connect to Redis Server by host: " . $this->host . " and port: " . $this->port, 500);
             }
-        } catch (\Exception | \RuntimeException | \Error $e) {
-            $this->addError($e);
+
+            if ($this->auth($this->password) === false) {
+                throw new \Exception("Can't autentificate Redis user by password", 500);
+            }
+
+            if ($this->select($this->database) === false) {
+                throw new \Exception("Can't select Redis database with index: " . $this->database, 500);
+            }
+            return true;
+        } catch (\Exception $e) {
+            $this->error((string) $e);
             return false;
         }
     }
 
-    public function getConnect()
+    public function ping($message = null): string|bool
     {
-        return $this->connect;
+        if (parent::ping() === true) {
+            return true;
+        } else {
+            $this->error('Ping is lost connection with Redis');
+            return false;
+        }
     }
 
     public static function shutdown()
     {
-        if (isset(self::$instance->connect) && self::$instance->connect !== false && self::$instance->connect !== NULL) {
-            self::$instance->connect->close();
+        if (isset(self::$instance)) {
+            self::$instance->close();
         }
     }
 
     function __destruct()
     {
-        try {
-            if ($this->connect !== false && $this->connect !== NULL) {
-                $this->connect->close();
-            }
-        } catch (\RedisException $e) {
-            error_log((string) $e);
-        }
-    }
-
-    public function exists($key)
-    {
-        try {
-            return $this->connect->exists($key);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function get($key)
-    {
-        return $this->connect->get($key);
-    }
-
-    public function delete($key)
-    {
-        return $this->connect->del($key);
-    }
-
-    public function set($key, $value)
-    {
-        try {
-            return $this->connect->set($key, $value);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function setEx($key, $ttl, $value)
-    {
-        try {
-            return $this->connect->setEx($key, $ttl, $value);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function setExpire($key, $ttl)
-    {
-        try {
-            return $this->connect->expire($key, $ttl);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function getTTL($key)
-    {
-        try {
-            return $this->connect->ttl($key);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function sAdd(...$params)
-    {
-        try {
-            return call_user_func_array(array($this->connect, 'sAdd'), $params);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function sRem(...$params)
-    {
-        try {
-            return call_user_func_array(array($this->connect, 'sRem'), $params);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function sGetMembers($key)
-    {
-        try {
-            return $this->connect->sGetMembers($key);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function hSet($key, $hashKey, $value)
-    {
-        try {
-            return $this->connect->hSet($key, $hashKey, $value);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function hGet($key, $hashKey)
-    {
-        try {
-            return $this->connect->hGet($key, $hashKey);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function hDel($key, $hashKey)
-    {
-        try {
-            return $this->connect->hDel($key, $hashKey);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function hMSet($key, array $data)
-    {
-        try {
-            return $this->connect->hMSet($key, $data);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function hMGet($key, array $hashKeys)
-    {
-        try {
-            return $this->connect->hMGet($key, $hashKeys);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
-    }
-
-    public function hVals($key)
-    {
-        try {
-            return $this->connect->hVals($key);
-        } catch (\Exception $e) {
-            error_log((string) $e);
-            return false;
-        }
+        $this->close();
     }
 
     public function getLastNKeys($minuteCounter, $keyNumber, $keyPrefix, &$resultArray)
     {
         for ($i = 1; $i <= $keyNumber; $i++) {
-            if ($this->connect->exists($keyPrefix . $minuteCounter)) {
-                $resultRaw = $this->connect->get($keyPrefix . $minuteCounter);
+            if ($this->exists($keyPrefix . $minuteCounter)) {
+                $resultRaw = $this->get($keyPrefix . $minuteCounter);
                 if (!is_bool($resultRaw)) {
                     $resultArray[] = unserialize($resultRaw);
                 }
