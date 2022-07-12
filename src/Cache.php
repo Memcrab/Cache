@@ -117,4 +117,15 @@ class Cache extends \Redis
             }
         }
     }
+
+    public function copy(): \Memcrab\Cache\Cache
+    {
+        $vars = get_object_vars($this);
+        $connections = new self();
+        foreach ($vars as $key => $value) {
+            $connections->$key = $value;
+        }
+        $connections->setConnection();
+        return $connections;
+    }
 }
