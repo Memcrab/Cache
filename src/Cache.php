@@ -12,7 +12,7 @@ class Cache extends \Redis
     private string $password;
     private int $database;
     private int $timeout = 3;
-    private \Memcrab\Log\Log $ErrorHandler;
+    private \Monolog\Logger $ErrorHandler;
 
     private function __construct()
     {
@@ -45,7 +45,7 @@ class Cache extends \Redis
         int $port,
         string $password,
         int $database,
-        \Memcrab\Log\Log $ErrorHandler,
+        \Monolog\Logger $ErrorHandler,
     ) {
         self::$instance = new Cache();
         self::$instance->host =  $host;
