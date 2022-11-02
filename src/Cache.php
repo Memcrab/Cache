@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace Memcrab\Cache;
 
-class Cache extends \Redis
+use Memcrab\Log\Log;
+use Swoole\Database\RedisConfig;
+use Swoole\Database\RedisPool;
+
+class Cache
 {
     protected static Cache $instance;
+    private RedisPool $RedisPool;
     private string $host;
     private int $port;
     private string $password;
@@ -16,20 +21,23 @@ class Cache extends \Redis
 
     private function __construct()
     {
+        //
     }
 
     private function __clone()
     {
+        //
     }
 
     public function __wakeup()
     {
+        //
     }
 
-    public static function obj()
+    public static function obj(): Cache
     {
         if (!isset(self::$instance)) {
-            throw new \Exception('Undefined Redis object, please declare connection first', 500);
+            self::$instance = new self();
         }
 
         return self::$instance;
@@ -40,64 +48,25 @@ class Cache extends \Redis
         $this->ErrorHandler->error($message);
     }
 
-    public static function declareConnection(
-        string $host,
-        int $port,
-        string $password,
-        int $database,
-        \Monolog\Logger $ErrorHandler,
-    ) {
-        self::$instance = new Cache();
-        self::$instance->host =  $host;
-        self::$instance->port =  $port;
-        self::$instance->password =  $password;
-        self::$instance->database =  $database;
-        self::$instance->ErrorHandler = $ErrorHandler;
-
+    public function declareConnection(string $host, int $port, string $password, int $database, \Monolog\Logger $ErrorHandler) {
+        $this->RedisPool = new RedisPool((new RedisConfig)
+            ->withHost($host)
+            ->withPort($port)
+            ->withAuth($password)
+            ->withDbIndex($database)
+            ->withTimeout($this->timeout)
+        );
         \register_shutdown_function("Memcrab\Cache\Cache::shutdown");
     }
 
-    public function setConnection(): bool
+    private function getRedis(): \Redis
     {
-        try {
-            if ($this->connect($this->host, $this->port, $this->timeout)  === false) {
-                throw new \Exception("Can't connect to Redis Server by host: " . $this->host . " and port: " . $this->port, 500);
-            }
-
-            if ($this->auth($this->password) === false) {
-                throw new \Exception("Can't autentificate Redis user by password", 500);
-            }
-
-            if ($this->select($this->database) === false) {
-                throw new \Exception("Can't select Redis database with index: " . $this->database, 500);
-            }
-            return true;
-        } catch (\Exception $e) {
-            $this->error((string) $e);
-            return false;
-        }
+        return $this->RedisPool->get();
     }
 
-    public function ping($message = null): string|bool
+    private function putRedis(\Redis $Redis): void
     {
-        if (parent::ping() === true) {
-            return true;
-        } else {
-            $this->error('Ping is lost connection with Redis');
-            return false;
-        }
-    }
-
-    public static function shutdown()
-    {
-        if (isset(self::$instance)) {
-            self::$instance->close();
-        }
-    }
-
-    function __destruct()
-    {
-        $this->close();
+        $this->RedisPool->put($Redis);
     }
 
     public function getLastNKeys($minuteCounter, $keyNumber, $keyPrefix, &$resultArray)
@@ -118,14 +87,115 @@ class Cache extends \Redis
         }
     }
 
-    public function copy(): \Memcrab\Cache\Cache
+
+    private function addError($errorMessage = "")
     {
-        $vars = get_object_vars($this);
-        $connections = new self();
-        foreach ($vars as $key => $value) {
-            $connections->$key = $value;
+        $trace = debug_backtrace();
+        array_shift($trace);
+        Log::stream("errors")->error("Redis Exception: " . $errorMessage . self::getTraceAsString($trace));
+        $this->errors[] = array($errorMessage, self::getTraceAsString($trace));
+        return $this;
+    }
+
+    public static function getTraceAsString(array $backtrace)
+    {
+        $result = "\n";
+        foreach ($backtrace as $key => $value) {
+            $result .= (isset($value['file']) ? $value['file'] : "") .
+                " (" . (isset($value['line']) ? $value['line'] : "") . ") " .
+                (isset($value['class']) ? $value['class'] : "") .
+                (isset($value['type']) ? $value['type'] : "") .
+                $value['function'] .
+                "\n";
         }
-        $connections->setConnection();
-        return $connections;
+        return $result;
+    }
+
+    public function get($key)
+    {
+        try {
+            $Redis = $this->getRedis();
+            $result = $Redis->get($key);
+            $this->putRedis($Redis);
+        } catch (\Exception $e) {
+            $this->addError($e->getMessage());
+                isset($Redis) ?? $this->putRedis($Redis);
+            return false;
+        }
+
+        return $result;
+    }
+
+    public function delete($key)
+    {
+        try {
+            $Redis = $this->getRedis();
+            $result = $Redis->del($key);
+            $this->putRedis($Redis);
+        } catch (\Exception $e) {
+            $this->addError($e->getMessage());
+                isset($Redis) ?? $this->putRedis($Redis);
+            return false;
+        }
+
+        return $result;
+    }
+
+    public function exists($key): bool
+    {
+        try {
+            $Redis = $this->getRedis();
+            $result = (bool)$Redis->exists($key);
+            $this->putRedis($Redis);
+        } catch (\Exception $e) {
+            $this->addError($e->getMessage());
+                isset($Redis) ?? $this->putRedis($Redis);
+            return false;
+        }
+
+        return $result;
+    }
+
+    public function setEx($key, $ttl, $value)
+    {
+        try {
+            $Redis = $this->getRedis();
+            $result = $Redis->setEx($key, $ttl, $value);
+            $this->putRedis($Redis);
+        } catch (\Exception $e) {
+            $this->addError($e->getMessage());
+                isset($Redis) ?? $this->putRedis($Redis);
+            return false;
+        }
+
+        return $result;
+    }
+
+    public function hSet($key, $hashKey, $value)
+    {
+        try {
+            $Redis = $this->getRedis();
+            $result = $Redis->hSet($key, $hashKey, $value);
+            $this->putRedis($Redis);
+        } catch (\Exception $e) {
+            $this->addError($e->getMessage());
+                isset($Redis) ?? $this->putRedis($Redis);
+            return false;
+        }
+
+        return $result;
+    }
+
+
+    public static function shutdown()
+    {
+        if (isset(self::$instance)) {
+            self::$instance->close();
+        }
+    }
+
+    function __destruct()
+    {
+        $this->close();
     }
 }
