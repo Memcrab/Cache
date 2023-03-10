@@ -82,7 +82,6 @@ class CachePool
                 ->withDbIndex($database)
                 ->withTimeout($this->timeout)
         );
-        \register_shutdown_function("Memcrab\Cache\CachePool::shutdown");
     }
 
     /**
