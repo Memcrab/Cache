@@ -273,4 +273,58 @@ class CachePool
 
         return $result;
     }
+    
+    /**
+     * @param $key
+     * @return int|false|Redis
+     */
+    public function getTTL($key): bool|int|Redis
+    {
+        try {
+            $Redis = $this->getRedis();
+            $result = $Redis->ttl($key);
+            $this->putRedis($Redis);
+        } catch (\Exception $e) {
+            $this->addError($e->getMessage());
+            return false;
+        }
+
+        return $result;
+    }
+    
+    /**
+     * @return string|false|Redis
+     */
+    public function getLastError(): bool|string|Redis
+    {
+        try {
+            $Redis = $this->getRedis();
+            $result = $Redis->getLastError();
+            $this->putRedis($Redis);
+        } catch (\Exception $e) {
+            $this->addError($e->getMessage());
+            return false;
+        }
+        
+        return $result;
+    }
+
+    /**
+     * @param $key
+     * @param int $ttl
+     * @return int|false|Redis
+     */
+    public function setExpire($key, int $ttl): bool|Redis
+    {
+        try {
+            $Redis = $this->getRedis();
+            $result = $Redis->expire($key, $ttl);
+            $this->putRedis($Redis);
+        } catch (\Exception $e) {
+            $this->addError($e->getMessage());
+            return false;
+        }
+
+        return $result;
+    }
 }
