@@ -295,7 +295,7 @@ class CachePool
     /**
      * @return string|false|Redis
      */
-    public function getLastError(): bool|string|Redis
+    public function getLastError(): bool|string|Redis|null
     {
         try {
             $Redis = $this->getRedis();
